@@ -7,10 +7,8 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation"></script>
-    <!-- Plugin-uri pentru Zoom și Pan -->
     <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1"></script>
-    <!-- Includem Math.js pentru evaluarea formulelor text cu variabile -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/11.8.0/math.js"></script>
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; }
@@ -46,8 +44,7 @@
         </div>
 
         <div class="p-6">
-            <!-- Selector Grafic (Tabs) și Buton Reset Zoom -->
-            <div class="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
+            <div class="flex justify-center mb-6">
                 <div class="inline-flex rounded-md shadow-sm" role="group">
                     <button type="button" id="btnNyquist" onclick="setView('nyquist')" class="tab-btn tab-active px-6 py-2 text-sm font-medium border rounded-l-lg focus:z-10 focus:ring-2 focus:ring-blue-500">
                         Diagrama Nyquist
@@ -56,14 +53,8 @@
                         Diagrama Bode (Asimptote)
                     </button>
                 </div>
-                
-                <button onclick="resetZoom()" class="bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 text-sm font-semibold py-2 px-4 rounded-lg shadow-sm transition-colors flex items-center gap-2">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
-                    Resetează Zoom
-                </button>
             </div>
 
-            <!-- Zona de Input -->
             <div class="bg-blue-50 border border-blue-200 p-5 rounded-lg mb-6">
                 <label for="formulaInput" class="block text-sm font-bold text-blue-900 mb-2">Funcția de Transfer $G(s)$</label>
                 <div class="flex gap-4">
@@ -79,10 +70,8 @@
                 </p>
             </div>
 
-            <!-- Zona de Controale Rapide -->
             <div class="bg-gray-100 border border-gray-200 p-5 rounded-lg mb-6 flex flex-wrap gap-6 items-center justify-between">
                 <div class="flex flex-wrap gap-4 sm:gap-8">
-                    <!-- Switch Integrator -->
                     <div class="flex items-center">
                         <div class="relative inline-block w-10 mr-2 align-middle select-none transition duration-200 ease-in">
                             <input type="checkbox" name="toggleInt" id="toggleInt" onchange="triggerUpdate()" class="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer z-10 transition-transform duration-200 ease-in-out"/>
@@ -91,7 +80,6 @@
                         <label for="toggleInt" class="font-medium text-gray-700 cursor-pointer">Adaugă Integrator (1/s)</label>
                     </div>
 
-                    <!-- Switch Derivator -->
                     <div class="flex items-center">
                         <div class="relative inline-block w-10 mr-2 align-middle select-none transition duration-200 ease-in">
                             <input type="checkbox" name="toggleDer" id="toggleDer" onchange="triggerUpdate()" class="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer z-10 transition-transform duration-200 ease-in-out"/>
@@ -102,7 +90,6 @@
                 </div>
             </div>
 
-            <!-- Zona de Analiză K și Slider -->
             <div id="kAnalysisZone" class="bg-emerald-50 border border-emerald-200 p-5 rounded-lg mb-6 hidden">
                 <div class="flex flex-col md:flex-row gap-6 items-center">
                     <div class="w-full md:w-1/2 border-r border-emerald-200 pr-4">
@@ -121,7 +108,6 @@
             </div>
 
             <div class="flex flex-col lg:flex-row gap-8">
-                <!-- Info Panel -->
                 <div class="w-full lg:w-1/4 space-y-4">
                     <div class="bg-gray-50 border border-gray-200 p-4 rounded shadow-sm">
                         <h3 class="font-bold text-gray-800 mb-2">Detalii Curente:</h3>
@@ -138,21 +124,18 @@
                     
                     <div class="bg-yellow-50 border border-yellow-200 p-4 rounded shadow-sm">
                         <h3 class="font-bold text-yellow-800 mb-1 text-sm">💡 Interactivitate</h3>
-                        <p class="text-xs text-yellow-700">Folosește <b>rotița mouse-ului</b> pentru a da zoom pe grafice și <b>click + trage</b> pentru a naviga stânga/dreapta/sus/jos.</p>
+                        <p class="text-xs text-yellow-700">Folosește <b>rotița mouse-ului</b> pentru a da zoom pe grafice și <b>click + trage</b> pentru a naviga. Folosește butoanele de sub grafic pentru a centra vizualizarea.</p>
                     </div>
                 </div>
 
-                <!-- Graficele -->
-                <div class="w-full lg:w-3/4">
+                <div class="w-full lg:w-3/4 flex flex-col">
                     
-                    <!-- View: NYQUIST -->
                     <div id="viewNyquist" class="block border border-gray-200 rounded-lg bg-white shadow-inner p-2">
                         <div class="nyquist-container">
                             <canvas id="nyquistChart"></canvas>
                         </div>
                     </div>
 
-                    <!-- View: BODE -->
                     <div id="viewBode" class="hidden border border-gray-200 rounded-lg bg-white shadow-inner p-4 space-y-8">
                         <div class="bode-container">
                             <canvas id="bodeMagChart"></canvas>
@@ -160,6 +143,23 @@
                         <div class="w-full border-t border-gray-200"></div>
                         <div class="bode-container">
                             <canvas id="bodePhaseChart"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="flex justify-center lg:justify-end mt-4">
+                        <div class="inline-flex rounded-md shadow-sm bg-white" role="group">
+                            <button onclick="resetZoom('xy')" class="bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 text-sm font-semibold py-2 px-4 rounded-l-lg transition-colors flex items-center gap-1" title="Fit to Page (Ambele Axe)">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"></path></svg>
+                                <span>Fit Page</span>
+                            </button>
+                            <button onclick="resetZoom('x')" class="bg-white border-t border-b border-r border-gray-300 hover:bg-gray-100 text-gray-800 text-sm font-semibold py-2 px-4 transition-colors flex items-center gap-1" title="Fit to Width (Centrare pe axa X)">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 12h16M4 12l4-4M4 12l4 4M20 12l-4-4M20 12l-4 4"></path></svg>
+                                <span>Fit Width</span>
+                            </button>
+                            <button onclick="resetZoom('y')" class="bg-white border-t border-b border-r border-gray-300 hover:bg-gray-100 text-gray-800 text-sm font-semibold py-2 px-4 rounded-r-lg transition-colors flex items-center gap-1" title="Fit to Height (Centrare pe axa Y)">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16M12 4l-4 4M12 4l4 4M12 20l-4-4M12 20l4-4"></path></svg>
+                                <span>Fit Height</span>
+                            </button>
                         </div>
                     </div>
 
@@ -214,13 +214,13 @@
             updateChartWithSlider(); 
         }
 
-        // Functie globala pentru resetare zoom
-        function resetZoom() {
+        // Functie globala pentru resetare zoom (suporta moduri: 'xy', 'x', 'y')
+        function resetZoom(mode = 'xy') {
             if (currentView === 'nyquist' && nyquistChartInstance) {
-                nyquistChartInstance.resetZoom();
+                nyquistChartInstance.resetZoom(mode);
             } else {
-                if (bodeMagChartInstance) bodeMagChartInstance.resetZoom();
-                if (bodePhaseChartInstance) bodePhaseChartInstance.resetZoom();
+                if (bodeMagChartInstance) bodeMagChartInstance.resetZoom(mode);
+                if (bodePhaseChartInstance) bodePhaseChartInstance.resetZoom(mode);
             }
         }
 
@@ -281,13 +281,13 @@
         // Extrage polii și zerourile asimptotice citind textul formulei
         function extractFactorsFromText(str) {
             let factors = [];
-            // Regex pentru ordinul 2: (s^2 + a*s + b) sau (s*s + a*s + b)
+            // Regex pentru ordinul 2
             let re2 = /s(?:\^2|\*s)\s*\+\s*[0-9.]+\s*\*\s*s\s*\+\s*([0-9.]+)/g;
             str = str.replace(re2, (match, b) => {
                 factors.push({ w: Math.sqrt(parseFloat(b)), order: 2 });
-                return " "; // Eliminăm pentru a nu se suprapune cu ordinul 1
+                return " "; 
             });
-            // Regex pentru ordinul 1: (s + a)
+            // Regex pentru ordinul 1
             let re1 = /s\s*\+\s*([0-9.]+)/g;
             str.replace(re1, (match, a) => {
                 factors.push({ w: parseFloat(a), order: 1 });
@@ -482,7 +482,6 @@
                     plugins: { 
                         tooltip: { callbacks: { label: (ctx) => ctx.datasetIndex === 2 ? 'Punct critic (-1, 0)' : `Re: ${ctx.parsed.x.toFixed(2)}, Im: ${ctx.parsed.y.toFixed(2)}` } }, 
                         legend: { position: 'bottom' },
-                        // Activare plugin ZOOM pentru Nyquist
                         zoom: {
                             pan: { enabled: true, mode: 'xy' },
                             zoom: { wheel: { enabled: true }, pinch: { enabled: true }, mode: 'xy' }
@@ -493,18 +492,17 @@
         }
 
         function renderBodeWithAsymptotes(hasInt, hasDer) {
-            // 1. Calculăm Câștigul de bază și panta la origine (la w = 10^-5)
             let res1 = evalG(1e-5, currentK, hasInt, hasDer);
             let res2 = evalG(1e-4, currentK, hasInt, hasDer);
             
             let mag1 = Math.sqrt(res1.re*res1.re + res1.im*res1.im);
             let mag2 = Math.sqrt(res2.re*res2.re + res2.im*res2.im);
             
-            let n = Math.round(Math.log10(mag2) - Math.log10(mag1)); // Panta inițială (ex: -1 pt integrator)
-            let KBode = mag1 / Math.pow(1e-5, n); // Extragem constanta K Bode
+            let n = Math.round(Math.log10(mag2) - Math.log10(mag1));
+            let KBode = mag1 / Math.pow(1e-5, n); 
             
             let basePhase = Math.atan2(res1.im, res1.re) * 180 / Math.PI;
-            basePhase = Math.round(basePhase / 90) * 90; // Rotește la asimptota perfectă (-90, 0, 90 etc)
+            basePhase = Math.round(basePhase / 90) * 90; 
 
             let asympMagTotal = []; let asympPhaseTotal = [];
             let asympBaseMag = []; let asympBasePhase = [];
@@ -512,7 +510,6 @@
             let indMagZeros = parsedZeros.map(() => []); let indPhaseZeros = parsedZeros.map(() => []);
             let indMagPoles = parsedPoles.map(() => []); let indPhasePoles = parsedPoles.map(() => []);
 
-            // 2. Construim asimptotele pentru fiecare punct ω
             wData.forEach((w) => {
                 let magB = 20 * Math.log10(KBode) + n * 20 * Math.log10(w);
                 asympBaseMag.push(magB);
@@ -544,7 +541,6 @@
                 asympPhaseTotal.push(totPhase);
             });
 
-            // 3. Aliniem faza exactă cu asimptotele (pentru a evita afișarea la 360° diferență)
             let kDb = currentK > 0 ? 20 * Math.log10(currentK) : 20 * Math.log10(Math.abs(currentK));
             let phaseShift = currentK < 0 ? -180 : 0;
             
@@ -557,7 +553,6 @@
                 plotPhaseData = plotPhaseData.map(p => ({ x: p.x, y: p.y + offset }));
             }
 
-            // 4. Liniile verticale de intersecție (doar la pulsațiile găsite)
             let breakAnnotations = {};
             [...parsedZeros, ...parsedPoles].forEach((item, index) => {
                 breakAnnotations[`w_${index}`] = { type: 'line', xMin: item.w, xMax: item.w, borderColor: 'rgba(0, 0, 0, 0.2)', borderWidth: 1, borderDash: [2, 2] };
@@ -565,23 +560,22 @@
 
             const extractD = (arr) => arr.map((y, i) => ({ x: wData[i], y: y }));
 
-            // 5. Construcție Datasets pentru Chart.js
             let magDatasets = [
-                { label: 'Curba Exactă (Reală)', data: plotMagData, borderColor: 'rgba(59, 130, 246, 0.9)', borderWidth: 4, tension: 0.2, order: 1 },
-                { label: 'Suma Asimptotelor (Total)', data: extractD(asympMagTotal), borderColor: 'rgba(0, 0, 0, 0.8)', borderWidth: 3, borderDash: [8, 4], tension: 0, order: 2 },
-                { label: `Start/Gain (Linia de bază)`, data: extractD(asympBaseMag), borderColor: 'rgba(107, 114, 128, 0.7)', borderWidth: 2, tension: 0, order: 3 }
+                { label: 'Curba Exactă', data: plotMagData, borderColor: 'rgba(59, 130, 246, 0.9)', borderWidth: 4, tension: 0.2, order: 1 },
+                { label: 'Suma Asimptotelor', data: extractD(asympMagTotal), borderColor: 'rgba(0, 0, 0, 0.8)', borderWidth: 3, borderDash: [8, 4], tension: 0, order: 2 },
+                { label: `Start/Gain`, data: extractD(asympBaseMag), borderColor: 'rgba(107, 114, 128, 0.7)', borderWidth: 2, tension: 0, order: 3 }
             ];
             
             let phaseDatasets = [
-                { label: 'Curba Exactă (Reală)', data: plotPhaseData, borderColor: 'rgba(59, 130, 246, 0.9)', borderWidth: 4, tension: 0.2, order: 1 },
-                { label: 'Suma Asimptotelor (Total)', data: extractD(asympPhaseTotal), borderColor: 'rgba(0, 0, 0, 0.8)', borderWidth: 3, borderDash: [8, 4], tension: 0, order: 2 },
+                { label: 'Curba Exactă', data: plotPhaseData, borderColor: 'rgba(59, 130, 246, 0.9)', borderWidth: 4, tension: 0.2, order: 1 },
+                { label: 'Suma Asimptotelor', data: extractD(asympPhaseTotal), borderColor: 'rgba(0, 0, 0, 0.8)', borderWidth: 3, borderDash: [8, 4], tension: 0, order: 2 },
                 { label: `Faza de Start`, data: extractD(asympBasePhase), borderColor: 'rgba(107, 114, 128, 0.7)', borderWidth: 2, tension: 0, order: 3 }
             ];
 
             let orderCounter = 4;
             parsedZeros.forEach((z, idx) => {
                 let color = z.order === 1 ? 'rgba(139, 92, 246, 0.8)' : 'rgba(236, 72, 153, 0.8)';
-                let lbl = `Zero ω=${z.w.toFixed(1)} (Ord ${z.order})`;
+                let lbl = `Zero ω=${z.w.toFixed(1)}`;
                 magDatasets.push({ label: lbl, data: extractD(indMagZeros[idx]), borderColor: color, borderWidth: 2, tension: 0, order: orderCounter });
                 phaseDatasets.push({ label: lbl, data: extractD(indPhaseZeros[idx]), borderColor: color, borderWidth: 2, tension: 0, order: orderCounter });
                 orderCounter++;
@@ -589,7 +583,7 @@
 
             parsedPoles.forEach((p, idx) => {
                 let color = p.order === 1 ? 'rgba(16, 185, 129, 0.8)' : 'rgba(245, 158, 11, 0.8)';
-                let lbl = `Pol ω=${p.w.toFixed(1)} (Ord ${p.order})`;
+                let lbl = `Pol ω=${p.w.toFixed(1)}`;
                 magDatasets.push({ label: lbl, data: extractD(indMagPoles[idx]), borderColor: color, borderWidth: 2, tension: 0, order: orderCounter });
                 phaseDatasets.push({ label: lbl, data: extractD(indPhasePoles[idx]), borderColor: color, borderWidth: 2, tension: 0, order: orderCounter });
                 orderCounter++;
@@ -603,7 +597,6 @@
                 plugins: { 
                     legend: { display: true, position: 'top', labels: { usePointStyle: true, boxWidth: 10 } },
                     annotation: { annotations: breakAnnotations },
-                    // Activare plugin ZOOM pentru Bode
                     zoom: {
                         pan: { enabled: true, mode: 'xy' },
                         zoom: { wheel: { enabled: true }, pinch: { enabled: true }, mode: 'xy' }
@@ -611,14 +604,12 @@
                 }
             };
 
-            // Randare Amplitudine
             if (bodeMagChartInstance) bodeMagChartInstance.destroy();
             bodeMagChartInstance = new Chart(document.getElementById('bodeMagChart').getContext('2d'), {
                 type: 'line', data: { datasets: magDatasets },
                 options: { ...commonOptions, scales: { ...commonOptions.scales, y: { title: { display: true, text: 'Amplitudine [dB]', font: {weight: 'bold'} } } }, plugins: { ...commonOptions.plugins, title: { display: true, text: 'Adunarea Asimptotelor de AMPLITUDINE', font: {size: 14} } } }
             });
 
-            // Randare Fază
             if (bodePhaseChartInstance) bodePhaseChartInstance.destroy();
             bodePhaseChartInstance = new Chart(document.getElementById('bodePhaseChart').getContext('2d'), {
                 type: 'line', data: { datasets: phaseDatasets },
