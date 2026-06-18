@@ -3,15 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Simulator Unificat: Nyquist & Bode cu Analiză K</title>
+    <title>Simulator Unificat: Nyquist & Bode cu Asimptote</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation"></script>
+    <!-- Plugin-uri pentru Zoom și Pan -->
+    <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1"></script>
     <!-- Includem Math.js pentru evaluarea formulelor text cu variabile -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/11.8.0/math.js"></script>
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; }
         .nyquist-container { position: relative; width: 100%; max-width: 650px; margin: 0 auto; aspect-ratio: 1 / 1; }
-        .bode-container { position: relative; width: 100%; height: 320px; }
+        .bode-container { position: relative; width: 100%; height: 380px; }
         
         .toggle-checkbox:checked { right: 0; border-color: #3B82F6; }
         .toggle-checkbox:checked + .toggle-label { background-color: #3B82F6; }
@@ -38,20 +42,25 @@
     <div class="max-w-6xl mx-auto bg-white rounded-xl shadow-lg overflow-hidden">
         <div class="bg-blue-600 text-white p-6">
             <h1 class="text-2xl font-bold">Simulator Unificat: Nyquist & Bode</h1>
-            <p class="text-blue-100 mt-2">Analiza completă a stabilității și răspunsului în frecvență pentru orice funcție de transfer $G(s)$.</p>
+            <p class="text-blue-100 mt-2">Analiza stabilității Nyquist și descompunerea asimptotică Bode "ca pe foaie".</p>
         </div>
 
         <div class="p-6">
-            <!-- Selector Grafic (Tabs) -->
-            <div class="flex justify-center mb-6">
+            <!-- Selector Grafic (Tabs) și Buton Reset Zoom -->
+            <div class="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
                 <div class="inline-flex rounded-md shadow-sm" role="group">
                     <button type="button" id="btnNyquist" onclick="setView('nyquist')" class="tab-btn tab-active px-6 py-2 text-sm font-medium border rounded-l-lg focus:z-10 focus:ring-2 focus:ring-blue-500">
                         Diagrama Nyquist
                     </button>
                     <button type="button" id="btnBode" onclick="setView('bode')" class="tab-btn tab-inactive px-6 py-2 text-sm font-medium border-t border-b border-r rounded-r-lg focus:z-10 focus:ring-2 focus:ring-blue-500">
-                        Diagrama Bode
+                        Diagrama Bode (Asimptote)
                     </button>
                 </div>
+                
+                <button onclick="resetZoom()" class="bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 text-sm font-semibold py-2 px-4 rounded-lg shadow-sm transition-colors flex items-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                    Resetează Zoom
+                </button>
             </div>
 
             <!-- Zona de Input -->
@@ -64,7 +73,10 @@
                            oninput="triggerUpdate()">
                 </div>
                 <p id="errorMsg" class="text-red-600 font-bold mt-2 hidden">⚠️ Eroare de sintaxă în formulă. Verifică parantezele și operatorii!</p>
-                <p class="text-sm text-gray-500 mt-2">Folosește <b>*</b> pentru înmulțire (ex: 50*s), <b>/</b> pentru împărțire, și <b>s^2</b> sau <b>s*s</b> pentru puteri.</p>
+                <p class="text-sm text-gray-600 mt-2">
+                    Folosește <b>*</b> pentru înmulțire (ex: 50*s). <br>
+                    <span class="text-blue-700 font-medium">✨ Magia Bode:</span> Simulatorul îți va desena liniile asimptotice automat atâta timp cât păstrezi forma factorizată: <code class="bg-white px-1 rounded">s+a</code> sau <code class="bg-white px-1 rounded">s*s+a*s+b</code>.
+                </p>
             </div>
 
             <!-- Zona de Controale Rapide -->
@@ -96,14 +108,13 @@
                     <div class="w-full md:w-1/2 border-r border-emerald-200 pr-4">
                         <h3 class="font-bold text-emerald-900 text-lg mb-1">Analiza Stabilității</h3>
                         <p id="kIntervalText" class="text-emerald-800 text-xl font-mono bg-white inline-block p-2 rounded shadow-sm">Calculare...</p>
-                        <p id="kExplanation" class="text-sm text-gray-600 mt-2">Dacă K depășește această limită, Nyquist înconjoară punctul (-1, j0), iar curba Bode de amplitudine va fi prea sus când faza trece de -180°.</p>
+                        <p id="kExplanation" class="text-sm text-gray-600 mt-2">Dacă K depășește această limită, Nyquist înconjoară punctul (-1, j0), iar curba Bode de amplitudine va fi deasupra lui 0 dB când faza trece de -180°.</p>
                     </div>
                     <div class="w-full md:w-1/2">
                         <label for="kSlider" class="block font-bold text-emerald-900 mb-2 flex justify-between">
                             <span>Testează o valoare pentru k:</span>
                             <span id="kSliderValue" class="text-blue-600 font-mono bg-white px-2 py-0.5 rounded border border-blue-200">1</span>
                         </label>
-                        <!-- Min setat la 0.01 pentru a evita log(0) pe Bode -->
                         <input type="range" id="kSlider" min="0.01" max="1000" step="1" value="100" oninput="updateChartWithSlider()">
                     </div>
                 </div>
@@ -113,10 +124,21 @@
                 <!-- Info Panel -->
                 <div class="w-full lg:w-1/4 space-y-4">
                     <div class="bg-gray-50 border border-gray-200 p-4 rounded shadow-sm">
-                        <h3 class="font-bold text-gray-800 mb-2">Puncte cheie calculate:</h3>
+                        <h3 class="font-bold text-gray-800 mb-2">Detalii Curente:</h3>
                         <ul class="text-sm text-gray-700 space-y-3" id="pointsList">
                             <li>Aștept date...</li>
                         </ul>
+                    </div>
+                    
+                    <div id="factorsBox" class="bg-blue-50 border border-blue-200 p-4 rounded shadow-sm hidden">
+                        <h3 class="font-bold text-blue-800 mb-2">Asimptote Detectate:</h3>
+                        <ul class="text-sm text-blue-900 space-y-1 list-disc list-inside" id="factorsList">
+                        </ul>
+                    </div>
+                    
+                    <div class="bg-yellow-50 border border-yellow-200 p-4 rounded shadow-sm">
+                        <h3 class="font-bold text-yellow-800 mb-1 text-sm">💡 Interactivitate</h3>
+                        <p class="text-xs text-yellow-700">Folosește <b>rotița mouse-ului</b> pentru a da zoom pe grafice și <b>click + trage</b> pentru a naviga stânga/dreapta/sus/jos.</p>
                     </div>
                 </div>
 
@@ -163,6 +185,10 @@
         let rawMagData = [];
         let rawPhaseData = [];
         
+        // Factorii asimptotici detectați
+        let parsedZeros = [];
+        let parsedPoles = [];
+        
         let debounceTimer;
 
         // Comutator Vizualizare
@@ -177,20 +203,25 @@
             if (view === 'nyquist') {
                 btnN.className = "tab-btn tab-active px-6 py-2 text-sm font-medium border rounded-l-lg focus:z-10 focus:ring-2 focus:ring-blue-500";
                 btnB.className = "tab-btn tab-inactive px-6 py-2 text-sm font-medium border-t border-b border-r rounded-r-lg focus:z-10 focus:ring-2 focus:ring-blue-500";
-                viewN.classList.remove('hidden');
-                viewN.classList.add('block');
-                viewB.classList.remove('block');
-                viewB.classList.add('hidden');
+                viewN.classList.remove('hidden'); viewN.classList.add('block');
+                viewB.classList.remove('block'); viewB.classList.add('hidden');
             } else {
                 btnB.className = "tab-btn tab-active px-6 py-2 text-sm font-medium border-t border-b border-r rounded-r-lg focus:z-10 focus:ring-2 focus:ring-blue-500";
                 btnN.className = "tab-btn tab-inactive px-6 py-2 text-sm font-medium border rounded-l-lg focus:z-10 focus:ring-2 focus:ring-blue-500";
-                viewB.classList.remove('hidden');
-                viewB.classList.add('block');
-                viewN.classList.remove('block');
-                viewN.classList.add('hidden');
+                viewB.classList.remove('hidden'); viewB.classList.add('block');
+                viewN.classList.remove('block'); viewN.classList.add('hidden');
             }
-            // Redesenam ca să fim siguri că Chart.js detectează noua dimensiune
             updateChartWithSlider(); 
+        }
+
+        // Functie globala pentru resetare zoom
+        function resetZoom() {
+            if (currentView === 'nyquist' && nyquistChartInstance) {
+                nyquistChartInstance.resetZoom();
+            } else {
+                if (bodeMagChartInstance) bodeMagChartInstance.resetZoom();
+                if (bodePhaseChartInstance) bodePhaseChartInstance.resetZoom();
+            }
         }
 
         // Evaluează funcția la un punct complex s = j*w
@@ -201,64 +232,68 @@
                 if (hasInt) res = math.divide(res, s);
                 if (hasDer) res = math.multiply(res, s);
                 return res;
-            } catch (e) {
-                throw e;
-            }
+            } catch (e) { throw e; }
         }
 
-        // Bisection pentru a găsi intersecția exactă cu Im=0
         function bisectionForCrossing(w_low, w_high, hasInt, hasDer) {
             for(let i = 0; i < 20; i++) {
                 let w_mid = (w_low + w_high) / 2;
                 let res_mid = evalG(w_mid, 1, hasInt, hasDer);
                 let res_low = evalG(w_low, 1, hasInt, hasDer);
-                
-                if (Math.sign(res_mid.im) === Math.sign(res_low.im)) {
-                    w_low = w_mid;
-                } else {
-                    w_high = w_mid;
-                }
+                if (Math.sign(res_mid.im) === Math.sign(res_low.im)) w_low = w_mid;
+                else w_high = w_mid;
             }
             return (w_low + w_high) / 2;
         }
 
-        // Scanează și găsește limitele K critice
         function findKLimit(hasInt, hasDer) {
             let crossingsRe = [];
-            let prevIm = null;
-            let prevW = null;
+            let prevIm = null; let prevW = null;
             
             for(let p = -3; p <= 4; p += 0.05) {
                 let w = Math.pow(10, p);
                 try {
                     let res = evalG(w, 1, hasInt, hasDer);
                     let im = res.im;
-                    
                     if (prevIm !== null && Math.sign(im) !== Math.sign(prevIm)) {
-                        if (Math.abs(im - prevIm) < 100) { // Evită asimptotele infinite
+                        if (Math.abs(im - prevIm) < 100) { 
                             let exactW = bisectionForCrossing(prevW, w, hasInt, hasDer);
                             let exactRes = evalG(exactW, 1, hasInt, hasDer);
                             crossingsRe.push({ w: exactW, re: exactRes.re });
                         }
                     }
-                    prevIm = im;
-                    prevW = w;
+                    prevIm = im; prevW = w;
                 } catch(e) {}
             }
 
-            let criticalK = Infinity;
-            let criticalW = null;
-
+            let criticalK = Infinity; let criticalW = null;
             for(let c of crossingsRe) {
                 if (c.re < 0) {
                     let requiredKToHitMinus1 = -1 / c.re;
                     if (requiredKToHitMinus1 > 0 && requiredKToHitMinus1 < criticalK) {
-                        criticalK = requiredKToHitMinus1;
-                        criticalW = c.w;
+                        criticalK = requiredKToHitMinus1; criticalW = c.w;
                     }
                 }
             }
             return { kMax: criticalK, wCross: criticalW };
+        }
+
+        // Extrage polii și zerourile asimptotice citind textul formulei
+        function extractFactorsFromText(str) {
+            let factors = [];
+            // Regex pentru ordinul 2: (s^2 + a*s + b) sau (s*s + a*s + b)
+            let re2 = /s(?:\^2|\*s)\s*\+\s*[0-9.]+\s*\*\s*s\s*\+\s*([0-9.]+)/g;
+            str = str.replace(re2, (match, b) => {
+                factors.push({ w: Math.sqrt(parseFloat(b)), order: 2 });
+                return " "; // Eliminăm pentru a nu se suprapune cu ordinul 1
+            });
+            // Regex pentru ordinul 1: (s + a)
+            let re1 = /s\s*\+\s*([0-9.]+)/g;
+            str.replace(re1, (match, a) => {
+                factors.push({ w: parseFloat(a), order: 1 });
+                return " ";
+            });
+            return factors;
         }
 
         function triggerUpdate() {
@@ -280,6 +315,25 @@
                 return;
             }
 
+            // PARSARE TEXT PENTRU ASIMPTOTE
+            let parts = exprStr.split('/');
+            let numStr = parts[0];
+            let denStr = parts.length > 1 ? parts.slice(1).join('/') : "";
+            
+            parsedZeros = extractFactorsFromText(numStr);
+            parsedPoles = extractFactorsFromText(denStr);
+
+            // Afișează factorii detectați
+            if (parsedZeros.length > 0 || parsedPoles.length > 0) {
+                document.getElementById('factorsBox').classList.remove('hidden');
+                let factHtml = "";
+                parsedZeros.forEach(z => factHtml += `<li>Zero Ord ${z.order} la ω = <b>${z.w.toFixed(2)}</b></li>`);
+                parsedPoles.forEach(p => factHtml += `<li>Pol Ord ${p.order} la ω = <b>${p.w.toFixed(2)}</b></li>`);
+                document.getElementById('factorsList').innerHTML = factHtml;
+            } else {
+                document.getElementById('factorsBox').classList.add('hidden');
+            }
+
             const hasK = exprStr.includes('k');
             const hasInt = document.getElementById('toggleInt').checked;
             const hasDer = document.getElementById('toggleDer').checked;
@@ -292,12 +346,12 @@
                 stabilityLimitK = limitInfo.kMax;
 
                 if (stabilityLimitK === Infinity) {
-                    document.getElementById('kIntervalText').innerHTML = `k > 0 <span class="text-sm">(Sistem mereu stabil)</span>`;
+                    document.getElementById('kIntervalText').innerHTML = `k > 0 <span class="text-sm">(Mereu stabil)</span>`;
                     setupSlider(100, 1000, 100);
                 } else {
                     document.getElementById('kIntervalText').innerHTML = `0 < k < ${stabilityLimitK.toFixed(2)}`;
                     setupSlider(stabilityLimitK / 2, Math.ceil(stabilityLimitK * 1.5), stabilityLimitK);
-                    pointsListHtml += `<li><strong class="text-red-600">Intersecție Critică:</strong><br> Faza ajunge la -180° (Nyquist taie axa reală) la <strong>ω = ${limitInfo.wCross.toFixed(2)} rad/s</strong>.</li>`;
+                    pointsListHtml += `<li><strong class="text-red-600">Intersecție Critică:</strong><br> Faza ajunge la -180° la <strong>ω = ${limitInfo.wCross.toFixed(2)} rad/s</strong>.</li>`;
                 }
             } else {
                 kZone.classList.add('hidden');
@@ -308,22 +362,18 @@
             try {
                 let res0 = evalG(0.001, 1, hasInt, hasDer);
                 let resInf = evalG(10000, 1, hasInt, hasDer);
-                pointsListHtml += `<li><strong class="text-blue-600">Start (ω → 0):</strong><br> Pleacă din zona Re: ${res0.re.toFixed(1)}, Im: ${res0.im.toFixed(1)}</li>`;
-                pointsListHtml += `<li><strong class="text-gray-600">Final (ω → ∞):</strong><br> Se termină în zona Re: ${resInf.re.toFixed(2)}, Im: ${resInf.im.toFixed(2)}</li>`;
+                pointsListHtml += `<li><strong class="text-blue-600">Start (ω → 0):</strong><br> Zona Re: ${res0.re.toFixed(1)}, Im: ${res0.im.toFixed(1)}</li>`;
+                pointsListHtml += `<li><strong class="text-gray-600">Final (ω → ∞):</strong><br> Zona Re: ${resInf.re.toFixed(2)}, Im: ${resInf.im.toFixed(2)}</li>`;
             } catch(e) {}
 
             document.getElementById('pointsList').innerHTML = pointsListHtml;
 
             // Precalculăm datele brute (k=1)
-            rawPositiveData = [];
-            rawNegativeData = [];
-            wData = [];
-            rawMagData = [];
-            let rawPhases = [];
+            rawPositiveData = []; rawNegativeData = [];
+            wData = []; rawMagData = []; let rawPhases = [];
             
-            const points = 800;
-            const logMin = -2;
-            const logMax = 4;
+            const points = 600;
+            const logMin = -2; const logMax = 4;
             const step = (logMax - logMin) / (points - 1);
 
             for (let i = 0; i < points; i++) {
@@ -331,13 +381,13 @@
                 try {
                     let pt = evalG(w, 1, hasInt, hasDer); 
                     
-                    // Pentru BODE (păstrăm toate punctele)
+                    // Pentru BODE
                     wData.push(w);
                     let mag = Math.sqrt(pt.re*pt.re + pt.im*pt.im);
                     rawMagData.push(mag > 0 ? 20 * Math.log10(mag) : -200);
                     rawPhases.push(Math.atan2(pt.im, pt.re));
 
-                    // Pentru NYQUIST (Excludem zboruri masive spre infinit pentru vizibilitate)
+                    // Pentru NYQUIST
                     if (Math.abs(pt.re) < 500 && Math.abs(pt.im) < 500) {
                         rawPositiveData.push({ x: pt.re, y: pt.im });
                         rawNegativeData.push({ x: pt.re, y: -pt.im }); 
@@ -346,7 +396,7 @@
             }
             rawNegativeData.reverse(); 
 
-            // Phase Unwrapping pentru Bode
+            // Phase Unwrapping
             if (rawPhases.length > 0) {
                 let unwrappedPhases = [rawPhases[0]];
                 for (let i = 1; i < rawPhases.length; i++) {
@@ -367,13 +417,13 @@
             slider.step = maxVal > 100 ? 1 : 0.01;
             
             let currentSliderVal = parseFloat(slider.value);
-            if(isNaN(currentSliderVal) || currentSliderVal > maxVal * 2) {
-                slider.value = defaultVal;
-            }
+            if(isNaN(currentSliderVal) || currentSliderVal > maxVal * 2) slider.value = defaultVal;
         }
 
         function updateChartWithSlider() {
             const hasK = document.getElementById('formulaInput').value.toLowerCase().includes('k');
+            const hasInt = document.getElementById('toggleInt').checked;
+            const hasDer = document.getElementById('toggleDer').checked;
             
             if(hasK) {
                 currentK = parseFloat(document.getElementById('kSlider').value);
@@ -382,34 +432,30 @@
                 if (stabilityLimitK !== Infinity) {
                     const statusElem = document.getElementById('kSliderValue');
                     if (currentK >= stabilityLimitK) {
-                        statusElem.classList.remove('text-blue-600', 'border-blue-200');
-                        statusElem.classList.add('text-red-600', 'border-red-400', 'bg-red-50');
+                        statusElem.classList.replace('text-blue-600', 'text-red-600');
+                        statusElem.classList.replace('border-blue-200', 'border-red-400');
+                        statusElem.classList.add('bg-red-50');
                         statusElem.innerHTML = currentK + " (Instabil!)";
                     } else {
-                        statusElem.classList.add('text-blue-600', 'border-blue-200');
-                        statusElem.classList.remove('text-red-600', 'border-red-400', 'bg-red-50');
+                        statusElem.classList.replace('text-red-600', 'text-blue-600');
+                        statusElem.classList.replace('border-red-400', 'border-blue-200');
+                        statusElem.classList.remove('bg-red-50');
                         statusElem.innerHTML = currentK;
                     }
                 }
             }
 
             if (currentView === 'nyquist') {
-                // NYQUIST: Multiplicăm X și Y
                 let plotPosData = rawPositiveData.map(pt => ({ x: pt.x * currentK, y: pt.y * currentK }));
                 let plotNegData = rawNegativeData.map(pt => ({ x: pt.x * currentK, y: pt.y * currentK }));
                 renderNyquist(plotPosData, plotNegData);
             } else {
-                // BODE: Adăugăm 20*log10(k) la amplitudine. Faza rămâne neschimbată pt K > 0.
-                let kDb = currentK > 0 ? 20 * Math.log10(currentK) : -200;
-                let plotMagData = rawMagData.map((mag, i) => ({ x: wData[i], y: mag + kDb }));
-                let plotPhaseData = rawPhaseData.map((phase, i) => ({ x: wData[i], y: phase }));
-                renderBode(plotMagData, plotPhaseData);
+                renderBodeWithAsymptotes(hasInt, hasDer);
             }
         }
 
         function renderNyquist(posData, negData) {
             if (nyquistChartInstance) nyquistChartInstance.destroy();
-            
             let maxRange = 5; 
             for(let pt of posData) {
                 if(Math.abs(pt.x) > maxRange && Math.abs(pt.x) < 30) maxRange = Math.abs(pt.x);
@@ -433,50 +479,153 @@
                         x: { type: 'linear', position: 'bottom', title: { display: true, text: 'Axa Reală [Re]', font: {weight: 'bold'} }, grid: { color: (ctx) => ctx.tick.value === 0 ? '#000' : 'rgba(0,0,0,0.1)', lineWidth: (ctx) => ctx.tick.value === 0 ? 2 : 1 }, min: -maxRange, max: maxRange },
                         y: { type: 'linear', title: { display: true, text: 'Axa Imaginară [Im]', font: {weight: 'bold'} }, grid: { color: (ctx) => ctx.tick.value === 0 ? '#000' : 'rgba(0,0,0,0.1)', lineWidth: (ctx) => ctx.tick.value === 0 ? 2 : 1 }, min: -maxRange, max: maxRange }
                     },
-                    plugins: { tooltip: { callbacks: { label: (ctx) => ctx.datasetIndex === 2 ? 'Punct critic (-1, 0)' : `Re: ${ctx.parsed.x.toFixed(2)}, Im: ${ctx.parsed.y.toFixed(2)}` } }, legend: { position: 'bottom' } }
+                    plugins: { 
+                        tooltip: { callbacks: { label: (ctx) => ctx.datasetIndex === 2 ? 'Punct critic (-1, 0)' : `Re: ${ctx.parsed.x.toFixed(2)}, Im: ${ctx.parsed.y.toFixed(2)}` } }, 
+                        legend: { position: 'bottom' },
+                        // Activare plugin ZOOM pentru Nyquist
+                        zoom: {
+                            pan: { enabled: true, mode: 'xy' },
+                            zoom: { wheel: { enabled: true }, pinch: { enabled: true }, mode: 'xy' }
+                        }
+                    }
                 }
             });
         }
 
-        function renderBode(magData, phaseData) {
+        function renderBodeWithAsymptotes(hasInt, hasDer) {
+            // 1. Calculăm Câștigul de bază și panta la origine (la w = 10^-5)
+            let res1 = evalG(1e-5, currentK, hasInt, hasDer);
+            let res2 = evalG(1e-4, currentK, hasInt, hasDer);
+            
+            let mag1 = Math.sqrt(res1.re*res1.re + res1.im*res1.im);
+            let mag2 = Math.sqrt(res2.re*res2.re + res2.im*res2.im);
+            
+            let n = Math.round(Math.log10(mag2) - Math.log10(mag1)); // Panta inițială (ex: -1 pt integrator)
+            let KBode = mag1 / Math.pow(1e-5, n); // Extragem constanta K Bode
+            
+            let basePhase = Math.atan2(res1.im, res1.re) * 180 / Math.PI;
+            basePhase = Math.round(basePhase / 90) * 90; // Rotește la asimptota perfectă (-90, 0, 90 etc)
+
+            let asympMagTotal = []; let asympPhaseTotal = [];
+            let asympBaseMag = []; let asympBasePhase = [];
+            
+            let indMagZeros = parsedZeros.map(() => []); let indPhaseZeros = parsedZeros.map(() => []);
+            let indMagPoles = parsedPoles.map(() => []); let indPhasePoles = parsedPoles.map(() => []);
+
+            // 2. Construim asimptotele pentru fiecare punct ω
+            wData.forEach((w) => {
+                let magB = 20 * Math.log10(KBode) + n * 20 * Math.log10(w);
+                asympBaseMag.push(magB);
+                asympBasePhase.push(basePhase);
+                
+                let totMag = magB; let totPhase = basePhase;
+
+                parsedZeros.forEach((z, idx) => {
+                    let dMag = w < z.w ? 0 : z.order * 20 * Math.log10(w / z.w);
+                    totMag += dMag; indMagZeros[idx].push(dMag);
+                    
+                    let dPhase = 0;
+                    if (w > 0.1 * z.w && w < 10 * z.w) dPhase = z.order * 45 * Math.log10(w / (0.1 * z.w));
+                    else if (w >= 10 * z.w) dPhase = z.order * 90;
+                    totPhase += dPhase; indPhaseZeros[idx].push(dPhase);
+                });
+
+                parsedPoles.forEach((p, idx) => {
+                    let dMag = w < p.w ? 0 : -p.order * 20 * Math.log10(w / p.w);
+                    totMag += dMag; indMagPoles[idx].push(dMag);
+                    
+                    let dPhase = 0;
+                    if (w > 0.1 * p.w && w < 10 * p.w) dPhase = -p.order * 45 * Math.log10(w / (0.1 * p.w));
+                    else if (w >= 10 * p.w) dPhase = -p.order * 90;
+                    totPhase += dPhase; indPhasePoles[idx].push(dPhase);
+                });
+
+                asympMagTotal.push(totMag);
+                asympPhaseTotal.push(totPhase);
+            });
+
+            // 3. Aliniem faza exactă cu asimptotele (pentru a evita afișarea la 360° diferență)
+            let kDb = currentK > 0 ? 20 * Math.log10(currentK) : 20 * Math.log10(Math.abs(currentK));
+            let phaseShift = currentK < 0 ? -180 : 0;
+            
+            let plotMagData = rawMagData.map((mag, i) => ({ x: wData[i], y: mag + kDb }));
+            let plotPhaseData = rawPhaseData.map((phase, i) => ({ x: wData[i], y: phase + phaseShift }));
+
+            if (plotPhaseData.length > 0 && asympPhaseTotal.length > 0) {
+                let diff = asympPhaseTotal[0] - plotPhaseData[0].y;
+                let offset = Math.round(diff / 360) * 360;
+                plotPhaseData = plotPhaseData.map(p => ({ x: p.x, y: p.y + offset }));
+            }
+
+            // 4. Liniile verticale de intersecție (doar la pulsațiile găsite)
+            let breakAnnotations = {};
+            [...parsedZeros, ...parsedPoles].forEach((item, index) => {
+                breakAnnotations[`w_${index}`] = { type: 'line', xMin: item.w, xMax: item.w, borderColor: 'rgba(0, 0, 0, 0.2)', borderWidth: 1, borderDash: [2, 2] };
+            });
+
+            const extractD = (arr) => arr.map((y, i) => ({ x: wData[i], y: y }));
+
+            // 5. Construcție Datasets pentru Chart.js
+            let magDatasets = [
+                { label: 'Curba Exactă (Reală)', data: plotMagData, borderColor: 'rgba(59, 130, 246, 0.9)', borderWidth: 4, tension: 0.2, order: 1 },
+                { label: 'Suma Asimptotelor (Total)', data: extractD(asympMagTotal), borderColor: 'rgba(0, 0, 0, 0.8)', borderWidth: 3, borderDash: [8, 4], tension: 0, order: 2 },
+                { label: `Start/Gain (Linia de bază)`, data: extractD(asympBaseMag), borderColor: 'rgba(107, 114, 128, 0.7)', borderWidth: 2, tension: 0, order: 3 }
+            ];
+            
+            let phaseDatasets = [
+                { label: 'Curba Exactă (Reală)', data: plotPhaseData, borderColor: 'rgba(59, 130, 246, 0.9)', borderWidth: 4, tension: 0.2, order: 1 },
+                { label: 'Suma Asimptotelor (Total)', data: extractD(asympPhaseTotal), borderColor: 'rgba(0, 0, 0, 0.8)', borderWidth: 3, borderDash: [8, 4], tension: 0, order: 2 },
+                { label: `Faza de Start`, data: extractD(asympBasePhase), borderColor: 'rgba(107, 114, 128, 0.7)', borderWidth: 2, tension: 0, order: 3 }
+            ];
+
+            let orderCounter = 4;
+            parsedZeros.forEach((z, idx) => {
+                let color = z.order === 1 ? 'rgba(139, 92, 246, 0.8)' : 'rgba(236, 72, 153, 0.8)';
+                let lbl = `Zero ω=${z.w.toFixed(1)} (Ord ${z.order})`;
+                magDatasets.push({ label: lbl, data: extractD(indMagZeros[idx]), borderColor: color, borderWidth: 2, tension: 0, order: orderCounter });
+                phaseDatasets.push({ label: lbl, data: extractD(indPhaseZeros[idx]), borderColor: color, borderWidth: 2, tension: 0, order: orderCounter });
+                orderCounter++;
+            });
+
+            parsedPoles.forEach((p, idx) => {
+                let color = p.order === 1 ? 'rgba(16, 185, 129, 0.8)' : 'rgba(245, 158, 11, 0.8)';
+                let lbl = `Pol ω=${p.w.toFixed(1)} (Ord ${p.order})`;
+                magDatasets.push({ label: lbl, data: extractD(indMagPoles[idx]), borderColor: color, borderWidth: 2, tension: 0, order: orderCounter });
+                phaseDatasets.push({ label: lbl, data: extractD(indPhasePoles[idx]), borderColor: color, borderWidth: 2, tension: 0, order: orderCounter });
+                orderCounter++;
+            });
+
             const commonOptions = {
                 responsive: true, maintainAspectRatio: false, animation: { duration: 0 },
                 interaction: { mode: 'index', intersect: false },
                 elements: { point: { radius: 0, hitRadius: 5 } },
-                scales: {
-                    x: { type: 'logarithmic', title: { display: true, text: 'Frecvența ω (rad/s)', font: {weight: 'bold'} }, grid: { color: 'rgba(0, 0, 0, 0.05)' } }
-                },
-                plugins: { legend: { display: false } }
+                scales: { x: { type: 'logarithmic', title: { display: true, text: 'Frecvența ω (rad/s)', font: {weight: 'bold'} }, grid: { color: 'rgba(0, 0, 0, 0.05)' } } },
+                plugins: { 
+                    legend: { display: true, position: 'top', labels: { usePointStyle: true, boxWidth: 10 } },
+                    annotation: { annotations: breakAnnotations },
+                    // Activare plugin ZOOM pentru Bode
+                    zoom: {
+                        pan: { enabled: true, mode: 'xy' },
+                        zoom: { wheel: { enabled: true }, pinch: { enabled: true }, mode: 'xy' }
+                    }
+                }
             };
 
-            // Diagrama de Amplitudine
+            // Randare Amplitudine
             if (bodeMagChartInstance) bodeMagChartInstance.destroy();
-            const ctxMag = document.getElementById('bodeMagChart').getContext('2d');
-            bodeMagChartInstance = new Chart(ctxMag, {
-                type: 'line',
-                data: { datasets: [{ label: 'Amplitudine (dB)', data: magData, borderColor: 'rgba(37, 99, 235, 1)', backgroundColor: 'rgba(37, 99, 235, 0.1)', borderWidth: 2, fill: true, tension: 0.1 }] },
-                options: {
-                    ...commonOptions,
-                    scales: { ...commonOptions.scales, y: { title: { display: true, text: 'Amplitudine L(ω) [dB]', font: {weight: 'bold'} } } },
-                    plugins: { title: { display: true, text: 'Caracteristica de Amplitudine', font: {size: 14} }, tooltip: { callbacks: { label: (ctx) => `${ctx.parsed.y.toFixed(2)} dB` } } }
-                }
+            bodeMagChartInstance = new Chart(document.getElementById('bodeMagChart').getContext('2d'), {
+                type: 'line', data: { datasets: magDatasets },
+                options: { ...commonOptions, scales: { ...commonOptions.scales, y: { title: { display: true, text: 'Amplitudine [dB]', font: {weight: 'bold'} } } }, plugins: { ...commonOptions.plugins, title: { display: true, text: 'Adunarea Asimptotelor de AMPLITUDINE', font: {size: 14} } } }
             });
 
-            // Diagrama de Fază
+            // Randare Fază
             if (bodePhaseChartInstance) bodePhaseChartInstance.destroy();
-            const ctxPhase = document.getElementById('bodePhaseChart').getContext('2d');
-            bodePhaseChartInstance = new Chart(ctxPhase, {
-                type: 'line',
-                data: { datasets: [{ label: 'Fază (grade)', data: phaseData, borderColor: 'rgba(220, 38, 38, 1)', borderWidth: 2, fill: false, tension: 0.1 }] },
-                options: {
-                    ...commonOptions,
-                    scales: { ...commonOptions.scales, y: { title: { display: true, text: 'Fază φ(ω) [grade]', font: {weight: 'bold'} } } },
-                    plugins: { title: { display: true, text: 'Caracteristica de Fază', font: {size: 14} }, tooltip: { callbacks: { label: (ctx) => `${ctx.parsed.y.toFixed(2)}°` } } }
-                }
+            bodePhaseChartInstance = new Chart(document.getElementById('bodePhaseChart').getContext('2d'), {
+                type: 'line', data: { datasets: phaseDatasets },
+                options: { ...commonOptions, scales: { ...commonOptions.scales, y: { title: { display: true, text: 'Fază [grade]', font: {weight: 'bold'} } } }, plugins: { ...commonOptions.plugins, title: { display: true, text: 'Adunarea Asimptotelor de FAZĂ', font: {size: 14} } } }
             });
         }
 
-        // Inițializare
         window.onload = processAndCalculate;
     </script>
 </body>
