@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulator Unificat: Nyquist & Bode cu Analiză K</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Includem Math.js pentru evaluarea formulelor text cu variabile -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/11.8.0/math.js"></script>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; }
+        .nyquist-container { position: relative; width: 100%; max-width: 650px; margin: 0 auto; aspect-ratio: 1 / 1; }
+        .bode-container { position: relative; width: 100%; height: 320px; }
+        
+        .toggle-checkbox:checked { right: 0; border-color: #3B82F6; }
+        .toggle-checkbox:checked + .toggle-label { background-color: #3B82F6; }
+        
+        input[type=range] {
+            -webkit-appearance: none; width: 100%; background: transparent;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none; height: 20px; width: 20px; border-radius: 50%;
+            background: #2563eb; cursor: pointer; margin-top: -8px; box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%; height: 6px; cursor: pointer; background: #d1d5db; border-radius: 3px;
+        }
+
+        /* Tab Styles */
+        .tab-btn { transition: all 0.2s ease-in-out; }
+        .tab-active { background-color: #2563eb; color: white; border-color: #2563eb; }
+        .tab-inactive { background-color: white; color: #4b5563; border-color: #d1d5db; hover: bg-gray-50; }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800 min-h-screen p-4 md:p-8">
+
+    <div class="max-w-6xl mx-auto bg-white rounded-xl shadow-lg overflow-hidden">
+        <div class="bg-blue-600 text-white p-6">
+            <h1 class="text-2xl font-bold">Simulator Unificat: Nyquist & Bode</h1>
+            <p class="text-blue-100 mt-2">Analiza completă a stabilității și răspunsului în frecvență pentru orice funcție de transfer $G(s)$.</p>
+        </div>
+
+        <div class="p-6">
+            <!-- Selector Grafic (Tabs) -->
+            <div class="flex justify-center mb-6">
+                <div class="inline-flex rounded-md shadow-sm" role="group">
+                    <button type="button" id="btnNyquist" onclick="setView('nyquist')" class="tab-btn tab-active px-6 py-2 text-sm font-medium border rounded-l-lg focus:z-10 focus:ring-2 focus:ring-blue-500">
+                        Diagrama Nyquist
+                    </button>
+                    <button type="button" id="btnBode" onclick="setView('bode')" class="tab-btn tab-inactive px-6 py-2 text-sm font-medium border-t border-b border-r rounded-r-lg focus:z-10 focus:ring-2 focus:ring-blue-500">
+                        Diagrama Bode
+                    </button>
+                </div>
+            </div>
+
+            <!-- Zona de Input -->
+            <div class="bg-blue-50 border border-blue-200 p-5 rounded-lg mb-6">
+                <label for="formulaInput" class="block text-sm font-bold text-blue-900 mb-2">Funcția de Transfer $G(s)$</label>
+                <div class="flex gap-4">
+                    <input type="text" id="formulaInput" value="(k*(s+10))/((s+2)*(s*s+50*s+2500))" 
+                           class="w-full border border-gray-300 rounded-md p-3 focus:ring-blue-500 focus:border-blue-500 font-mono text-lg shadow-sm" 
+                           placeholder="ex: (k*(s+10))/((s+2)*(s^2+50*s+2500))"
+                           oninput="triggerUpdate()">
+                </div>
+                <p id="errorMsg" class="text-red-600 font-bold mt-2 hidden">⚠️ Eroare de sintaxă în formulă. Verifică parantezele și operatorii!</p>
+                <p class="text-sm text-gray-500 mt-2">Folosește <b>*</b> pentru înmulțire (ex: 50*s), <b>/</b> pentru împărțire, și <b>s^2</b> sau <b>s*s</b> pentru puteri.</p>
+            </div>
+
+            <!-- Zona de Controale Rapide -->
+            <div class="bg-gray-100 border border-gray-200 p-5 rounded-lg mb-6 flex flex-wrap gap-6 items-center justify-between">
+                <div class="flex flex-wrap gap-4 sm:gap-8">
+                    <!-- Switch Integrator -->
+                    <div class="flex items-center">
+                        <div class="relative inline-block w-10 mr-2 align-middle select-none transition duration-200 ease-in">
+                            <input type="checkbox" name="toggleInt" id="toggleInt" onchange="triggerUpdate()" class="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer z-10 transition-transform duration-200 ease-in-out"/>
+                            <label for="toggleInt" class="toggle-label block overflow-hidden h-6 rounded-full bg-gray-300 cursor-pointer"></label>
+                        </div>
+                        <label for="toggleInt" class="font-medium text-gray-700 cursor-pointer">Adaugă Integrator (1/s)</label>
+                    </div>
+
+                    <!-- Switch Derivator -->
+                    <div class="flex items-center">
+                        <div class="relative inline-block w-10 mr-2 align-middle select-none transition duration-200 ease-in">
+                            <input type="checkbox" name="toggleDer" id="toggleDer" onchange="triggerUpdate()" class="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer z-10 transition-transform duration-200 ease-in-out"/>
+                            <label for="toggleDer" class="toggle-label block overflow-hidden h-6 rounded-full bg-gray-300 cursor-pointer"></label>
+                        </div>
+                        <label for="toggleDer" class="font-medium text-gray-700 cursor-pointer">Adaugă Derivator (s)</label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Zona de Analiză K și Slider -->
+            <div id="kAnalysisZone" class="bg-emerald-50 border border-emerald-200 p-5 rounded-lg mb-6 hidden">
+                <div class="flex flex-col md:flex-row gap-6 items-center">
+                    <div class="w-full md:w-1/2 border-r border-emerald-200 pr-4">
+                        <h3 class="font-bold text-emerald-900 text-lg mb-1">Analiza Stabilității</h3>
+                        <p id="kIntervalText" class="text-emerald-800 text-xl font-mono bg-white inline-block p-2 rounded shadow-sm">Calculare...</p>
+                        <p id="kExplanation" class="text-sm text-gray-600 mt-2">Dacă K depășește această limită, Nyquist înconjoară punctul (-1, j0), iar curba Bode de amplitudine va fi prea sus când faza trece de -180°.</p>
+                    </div>
+                    <div class="w-full md:w-1/2">
+                        <label for="kSlider" class="block font-bold text-emerald-900 mb-2 flex justify-between">
+                            <span>Testează o valoare pentru k:</span>
+                            <span id="kSliderValue" class="text-blue-600 font-mono bg-white px-2 py-0.5 rounded border border-blue-200">1</span>
+                        </label>
+                        <!-- Min setat la 0.01 pentru a evita log(0) pe Bode -->
+                        <input type="range" id="kSlider" min="0.01" max="1000" step="1" value="100" oninput="updateChartWithSlider()">
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex flex-col lg:flex-row gap-8">
+                <!-- Info Panel -->
+                <div class="w-full lg:w-1/4 space-y-4">
+                    <div class="bg-gray-50 border border-gray-200 p-4 rounded shadow-sm">
+                        <h3 class="font-bold text-gray-800 mb-2">Puncte cheie calculate:</h3>
+                        <ul class="text-sm text-gray-700 space-y-3" id="pointsList">
+                            <li>Aștept date...</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Graficele -->
+                <div class="w-full lg:w-3/4">
+                    
+                    <!-- View: NYQUIST -->
+                    <div id="viewNyquist" class="block border border-gray-200 rounded-lg bg-white shadow-inner p-2">
+                        <div class="nyquist-container">
+                            <canvas id="nyquistChart"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- View: BODE -->
+                    <div id="viewBode" class="hidden border border-gray-200 rounded-lg bg-white shadow-inner p-4 space-y-8">
+                        <div class="bode-container">
+                            <canvas id="bodeMagChart"></canvas>
+                        </div>
+                        <div class="w-full border-t border-gray-200"></div>
+                        <div class="bode-container">
+                            <canvas id="bodePhaseChart"></canvas>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let nyquistChartInstance = null;
+        let bodeMagChartInstance = null;
+        let bodePhaseChartInstance = null;
+        let compiledExpr = null;
+        
+        let stabilityLimitK = Infinity;
+        let currentK = 1;
+        let currentView = 'nyquist';
+        
+        // Date precalculate pentru k=1
+        let rawPositiveData = [];
+        let rawNegativeData = [];
+        let wData = [];
+        let rawMagData = [];
+        let rawPhaseData = [];
+        
+        let debounceTimer;
+
+        // Comutator Vizualizare
+        function setView(view) {
+            currentView = view;
+            
+            const btnN = document.getElementById('btnNyquist');
+            const btnB = document.getElementById('btnBode');
+            const viewN = document.getElementById('viewNyquist');
+            const viewB = document.getElementById('viewBode');
+
+            if (view === 'nyquist') {
+                btnN.className = "tab-btn tab-active px-6 py-2 text-sm font-medium border rounded-l-lg focus:z-10 focus:ring-2 focus:ring-blue-500";
+                btnB.className = "tab-btn tab-inactive px-6 py-2 text-sm font-medium border-t border-b border-r rounded-r-lg focus:z-10 focus:ring-2 focus:ring-blue-500";
+                viewN.classList.remove('hidden');
+                viewN.classList.add('block');
+                viewB.classList.remove('block');
+                viewB.classList.add('hidden');
+            } else {
+                btnB.className = "tab-btn tab-active px-6 py-2 text-sm font-medium border-t border-b border-r rounded-r-lg focus:z-10 focus:ring-2 focus:ring-blue-500";
+                btnN.className = "tab-btn tab-inactive px-6 py-2 text-sm font-medium border rounded-l-lg focus:z-10 focus:ring-2 focus:ring-blue-500";
+                viewB.classList.remove('hidden');
+                viewB.classList.add('block');
+                viewN.classList.remove('block');
+                viewN.classList.add('hidden');
+            }
+            // Redesenam ca să fim siguri că Chart.js detectează noua dimensiune
+            updateChartWithSlider(); 
+        }
+
+        // Evaluează funcția la un punct complex s = j*w
+        function evalG(w, k_val, hasInt, hasDer) {
+            let s = math.complex(0, w);
+            try {
+                let res = compiledExpr.evaluate({ s: s, k: k_val });
+                if (hasInt) res = math.divide(res, s);
+                if (hasDer) res = math.multiply(res, s);
+                return res;
+            } catch (e) {
+                throw e;
+            }
+        }
+
+        // Bisection pentru a găsi intersecția exactă cu Im=0
+        function bisectionForCrossing(w_low, w_high, hasInt, hasDer) {
+            for(let i = 0; i < 20; i++) {
+                let w_mid = (w_low + w_high) / 2;
+                let res_mid = evalG(w_mid, 1, hasInt, hasDer);
+                let res_low = evalG(w_low, 1, hasInt, hasDer);
+                
+                if (Math.sign(res_mid.im) === Math.sign(res_low.im)) {
+                    w_low = w_mid;
+                } else {
+                    w_high = w_mid;
+                }
+            }
+            return (w_low + w_high) / 2;
+        }
+
+        // Scanează și găsește limitele K critice
+        function findKLimit(hasInt, hasDer) {
+            let crossingsRe = [];
+            let prevIm = null;
+            let prevW = null;
+            
+            for(let p = -3; p <= 4; p += 0.05) {
+                let w = Math.pow(10, p);
+                try {
+                    let res = evalG(w, 1, hasInt, hasDer);
+                    let im = res.im;
+                    
+                    if (prevIm !== null && Math.sign(im) !== Math.sign(prevIm)) {
+                        if (Math.abs(im - prevIm) < 100) { // Evită asimptotele infinite
+                            let exactW = bisectionForCrossing(prevW, w, hasInt, hasDer);
+                            let exactRes = evalG(exactW, 1, hasInt, hasDer);
+                            crossingsRe.push({ w: exactW, re: exactRes.re });
+                        }
+                    }
+                    prevIm = im;
+                    prevW = w;
+                } catch(e) {}
+            }
+
+            let criticalK = Infinity;
+            let criticalW = null;
+
+            for(let c of crossingsRe) {
+                if (c.re < 0) {
+                    let requiredKToHitMinus1 = -1 / c.re;
+                    if (requiredKToHitMinus1 > 0 && requiredKToHitMinus1 < criticalK) {
+                        criticalK = requiredKToHitMinus1;
+                        criticalW = c.w;
+                    }
+                }
+            }
+            return { kMax: criticalK, wCross: criticalW };
+        }
+
+        function triggerUpdate() {
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(processAndCalculate, 300);
+        }
+
+        function processAndCalculate() {
+            const exprStr = document.getElementById('formulaInput').value.toLowerCase().replace(/k/g, 'k');
+            const errorMsg = document.getElementById('errorMsg');
+            const kZone = document.getElementById('kAnalysisZone');
+            
+            try {
+                compiledExpr = math.compile(exprStr);
+                compiledExpr.evaluate({ s: math.complex(1, 1), k: 1 });
+                errorMsg.classList.add('hidden');
+            } catch(e) {
+                errorMsg.classList.remove('hidden');
+                return;
+            }
+
+            const hasK = exprStr.includes('k');
+            const hasInt = document.getElementById('toggleInt').checked;
+            const hasDer = document.getElementById('toggleDer').checked;
+
+            let pointsListHtml = "";
+
+            if (hasK) {
+                kZone.classList.remove('hidden');
+                let limitInfo = findKLimit(hasInt, hasDer);
+                stabilityLimitK = limitInfo.kMax;
+
+                if (stabilityLimitK === Infinity) {
+                    document.getElementById('kIntervalText').innerHTML = `k > 0 <span class="text-sm">(Sistem mereu stabil)</span>`;
+                    setupSlider(100, 1000, 100);
+                } else {
+                    document.getElementById('kIntervalText').innerHTML = `0 < k < ${stabilityLimitK.toFixed(2)}`;
+                    setupSlider(stabilityLimitK / 2, Math.ceil(stabilityLimitK * 1.5), stabilityLimitK);
+                    pointsListHtml += `<li><strong class="text-red-600">Intersecție Critică:</strong><br> Faza ajunge la -180° (Nyquist taie axa reală) la <strong>ω = ${limitInfo.wCross.toFixed(2)} rad/s</strong>.</li>`;
+                }
+            } else {
+                kZone.classList.add('hidden');
+                currentK = 1;
+            }
+
+            // Calculăm punctul la w=0+ și w=inf
+            try {
+                let res0 = evalG(0.001, 1, hasInt, hasDer);
+                let resInf = evalG(10000, 1, hasInt, hasDer);
+                pointsListHtml += `<li><strong class="text-blue-600">Start (ω → 0):</strong><br> Pleacă din zona Re: ${res0.re.toFixed(1)}, Im: ${res0.im.toFixed(1)}</li>`;
+                pointsListHtml += `<li><strong class="text-gray-600">Final (ω → ∞):</strong><br> Se termină în zona Re: ${resInf.re.toFixed(2)}, Im: ${resInf.im.toFixed(2)}</li>`;
+            } catch(e) {}
+
+            document.getElementById('pointsList').innerHTML = pointsListHtml;
+
+            // Precalculăm datele brute (k=1)
+            rawPositiveData = [];
+            rawNegativeData = [];
+            wData = [];
+            rawMagData = [];
+            let rawPhases = [];
+            
+            const points = 800;
+            const logMin = -2;
+            const logMax = 4;
+            const step = (logMax - logMin) / (points - 1);
+
+            for (let i = 0; i < points; i++) {
+                let w = Math.pow(10, logMin + i * step);
+                try {
+                    let pt = evalG(w, 1, hasInt, hasDer); 
+                    
+                    // Pentru BODE (păstrăm toate punctele)
+                    wData.push(w);
+                    let mag = Math.sqrt(pt.re*pt.re + pt.im*pt.im);
+                    rawMagData.push(mag > 0 ? 20 * Math.log10(mag) : -200);
+                    rawPhases.push(Math.atan2(pt.im, pt.re));
+
+                    // Pentru NYQUIST (Excludem zboruri masive spre infinit pentru vizibilitate)
+                    if (Math.abs(pt.re) < 500 && Math.abs(pt.im) < 500) {
+                        rawPositiveData.push({ x: pt.re, y: pt.im });
+                        rawNegativeData.push({ x: pt.re, y: -pt.im }); 
+                    }
+                } catch(e) {}
+            }
+            rawNegativeData.reverse(); 
+
+            // Phase Unwrapping pentru Bode
+            if (rawPhases.length > 0) {
+                let unwrappedPhases = [rawPhases[0]];
+                for (let i = 1; i < rawPhases.length; i++) {
+                    let diff = rawPhases[i] - rawPhases[i - 1];
+                    while (diff > Math.PI) diff -= 2 * Math.PI;
+                    while (diff < -Math.PI) diff += 2 * Math.PI;
+                    unwrappedPhases.push(unwrappedPhases[i - 1] + diff);
+                }
+                rawPhaseData = unwrappedPhases.map(p => p * 180 / Math.PI);
+            }
+
+            updateChartWithSlider(); 
+        }
+
+        function setupSlider(defaultVal, maxVal, limitVal) {
+            const slider = document.getElementById('kSlider');
+            slider.max = maxVal;
+            slider.step = maxVal > 100 ? 1 : 0.01;
+            
+            let currentSliderVal = parseFloat(slider.value);
+            if(isNaN(currentSliderVal) || currentSliderVal > maxVal * 2) {
+                slider.value = defaultVal;
+            }
+        }
+
+        function updateChartWithSlider() {
+            const hasK = document.getElementById('formulaInput').value.toLowerCase().includes('k');
+            
+            if(hasK) {
+                currentK = parseFloat(document.getElementById('kSlider').value);
+                document.getElementById('kSliderValue').innerText = currentK;
+                
+                if (stabilityLimitK !== Infinity) {
+                    const statusElem = document.getElementById('kSliderValue');
+                    if (currentK >= stabilityLimitK) {
+                        statusElem.classList.remove('text-blue-600', 'border-blue-200');
+                        statusElem.classList.add('text-red-600', 'border-red-400', 'bg-red-50');
+                        statusElem.innerHTML = currentK + " (Instabil!)";
+                    } else {
+                        statusElem.classList.add('text-blue-600', 'border-blue-200');
+                        statusElem.classList.remove('text-red-600', 'border-red-400', 'bg-red-50');
+                        statusElem.innerHTML = currentK;
+                    }
+                }
+            }
+
+            if (currentView === 'nyquist') {
+                // NYQUIST: Multiplicăm X și Y
+                let plotPosData = rawPositiveData.map(pt => ({ x: pt.x * currentK, y: pt.y * currentK }));
+                let plotNegData = rawNegativeData.map(pt => ({ x: pt.x * currentK, y: pt.y * currentK }));
+                renderNyquist(plotPosData, plotNegData);
+            } else {
+                // BODE: Adăugăm 20*log10(k) la amplitudine. Faza rămâne neschimbată pt K > 0.
+                let kDb = currentK > 0 ? 20 * Math.log10(currentK) : -200;
+                let plotMagData = rawMagData.map((mag, i) => ({ x: wData[i], y: mag + kDb }));
+                let plotPhaseData = rawPhaseData.map((phase, i) => ({ x: wData[i], y: phase }));
+                renderBode(plotMagData, plotPhaseData);
+            }
+        }
+
+        function renderNyquist(posData, negData) {
+            if (nyquistChartInstance) nyquistChartInstance.destroy();
+            
+            let maxRange = 5; 
+            for(let pt of posData) {
+                if(Math.abs(pt.x) > maxRange && Math.abs(pt.x) < 30) maxRange = Math.abs(pt.x);
+                if(Math.abs(pt.y) > maxRange && Math.abs(pt.y) < 30) maxRange = Math.abs(pt.y);
+            }
+            maxRange = Math.ceil(maxRange * 1.2); 
+
+            const ctx = document.getElementById('nyquistChart').getContext('2d');
+            nyquistChartInstance = new Chart(ctx, {
+                type: 'scatter',
+                data: {
+                    datasets: [
+                        { label: 'Frecvențe pozitive (ω > 0)', data: posData, borderColor: 'rgba(37, 99, 235, 1)', borderWidth: 2, showLine: true, tension: 0.1, pointRadius: 0, pointHitRadius: 5 },
+                        { label: 'Frecvențe negative (ω < 0)', data: negData, borderColor: 'rgba(239, 68, 68, 0.6)', borderWidth: 2, borderDash: [5, 5], showLine: true, tension: 0.1, pointRadius: 0, pointHitRadius: 5 },
+                        { label: 'Punctul Critic (-1, j0)', data: [{ x: -1, y: 0 }], backgroundColor: 'red', borderColor: 'darkred', pointStyle: 'crossRot', pointRadius: 8, pointHoverRadius: 10, showLine: false }
+                    ]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false, animation: { duration: 0 }, 
+                    scales: {
+                        x: { type: 'linear', position: 'bottom', title: { display: true, text: 'Axa Reală [Re]', font: {weight: 'bold'} }, grid: { color: (ctx) => ctx.tick.value === 0 ? '#000' : 'rgba(0,0,0,0.1)', lineWidth: (ctx) => ctx.tick.value === 0 ? 2 : 1 }, min: -maxRange, max: maxRange },
+                        y: { type: 'linear', title: { display: true, text: 'Axa Imaginară [Im]', font: {weight: 'bold'} }, grid: { color: (ctx) => ctx.tick.value === 0 ? '#000' : 'rgba(0,0,0,0.1)', lineWidth: (ctx) => ctx.tick.value === 0 ? 2 : 1 }, min: -maxRange, max: maxRange }
+                    },
+                    plugins: { tooltip: { callbacks: { label: (ctx) => ctx.datasetIndex === 2 ? 'Punct critic (-1, 0)' : `Re: ${ctx.parsed.x.toFixed(2)}, Im: ${ctx.parsed.y.toFixed(2)}` } }, legend: { position: 'bottom' } }
+                }
+            });
+        }
+
+        function renderBode(magData, phaseData) {
+            const commonOptions = {
+                responsive: true, maintainAspectRatio: false, animation: { duration: 0 },
+                interaction: { mode: 'index', intersect: false },
+                elements: { point: { radius: 0, hitRadius: 5 } },
+                scales: {
+                    x: { type: 'logarithmic', title: { display: true, text: 'Frecvența ω (rad/s)', font: {weight: 'bold'} }, grid: { color: 'rgba(0, 0, 0, 0.05)' } }
+                },
+                plugins: { legend: { display: false } }
+            };
+
+            // Diagrama de Amplitudine
+            if (bodeMagChartInstance) bodeMagChartInstance.destroy();
+            const ctxMag = document.getElementById('bodeMagChart').getContext('2d');
+            bodeMagChartInstance = new Chart(ctxMag, {
+                type: 'line',
+                data: { datasets: [{ label: 'Amplitudine (dB)', data: magData, borderColor: 'rgba(37, 99, 235, 1)', backgroundColor: 'rgba(37, 99, 235, 0.1)', borderWidth: 2, fill: true, tension: 0.1 }] },
+                options: {
+                    ...commonOptions,
+                    scales: { ...commonOptions.scales, y: { title: { display: true, text: 'Amplitudine L(ω) [dB]', font: {weight: 'bold'} } } },
+                    plugins: { title: { display: true, text: 'Caracteristica de Amplitudine', font: {size: 14} }, tooltip: { callbacks: { label: (ctx) => `${ctx.parsed.y.toFixed(2)} dB` } } }
+                }
+            });
+
+            // Diagrama de Fază
+            if (bodePhaseChartInstance) bodePhaseChartInstance.destroy();
+            const ctxPhase = document.getElementById('bodePhaseChart').getContext('2d');
+            bodePhaseChartInstance = new Chart(ctxPhase, {
+                type: 'line',
+                data: { datasets: [{ label: 'Fază (grade)', data: phaseData, borderColor: 'rgba(220, 38, 38, 1)', borderWidth: 2, fill: false, tension: 0.1 }] },
+                options: {
+                    ...commonOptions,
+                    scales: { ...commonOptions.scales, y: { title: { display: true, text: 'Fază φ(ω) [grade]', font: {weight: 'bold'} } } },
+                    plugins: { title: { display: true, text: 'Caracteristica de Fază', font: {size: 14} }, tooltip: { callbacks: { label: (ctx) => `${ctx.parsed.y.toFixed(2)}°` } } }
+                }
+            });
+        }
+
+        // Inițializare
+        window.onload = processAndCalculate;
+    </script>
+</body>
+</html>
